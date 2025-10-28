@@ -84,10 +84,10 @@ This webhook processor service is designed to handle real-time payment notificat
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │                        │
                                 ▼                        ▼
-                       ┌──────────────────┐    ┌─────────────────┐
-                       │  Processing      │───▶│  Database       │
+                       ┌─────────────────┐
+                       │  Processing     │───▶│  Database       │
                        │  Service         │    │  (MySQL)        │
-                       └──────────────────┘    └─────────────────┘
+                       └──────────────────┘    
                                 │
                                 ▼
                        ┌──────────────────┐
@@ -107,6 +107,7 @@ This webhook processor service is designed to handle real-time payment notificat
 
 ## 📚 API Documentation
 
+Import the collection.json file in postman for all the api. Setup the docker or run the application before testing the api.
 ### Webhook Endpoint
 
 **POST** `/api/v1/webhooks/payment`
@@ -199,14 +200,59 @@ CREATE TABLE webhook_events (
 );
 ```
 
+## Docker Setup (Quick Start)
+
+### Prerequisites
+
+- **Docker Desktop** - [Download from Docker](https://www.docker.com/products/docker-desktop/)
+- **Docker Compose** - Included with Docker Desktop
+
+### Environment Configuration
+
+The Docker setup uses environment variables. Copy `env.example` to `.env` and update values:
+
+
+```bash
+cp env.example .env
+# Edit .env file with your preferred values
+```
+
+### Quick Start with Docker
+
+1. **Clone and Navigate**
+   ```bash
+   git clone <repository-url>
+   cd webhook-processor
+   ```
+
+2. **Start Everything**
+   ```bash
+   # Start all services
+   docker-compose up -d
+   ```
+
+3. **Verify Installation**
+   ```bash
+   # Check service status
+   docker-compose ps
+   
+   # Test the webhook endpoint
+   curl http://localhost:8080/api/v1/webhooks/payment
+   ```
+
+### Docker Services
+
+- **webhook-app**: Spring Boot application (Port 8080)
+- **mysql**: MySQL 8.0 database (Port 3306)
+
 ## 🚀 Setup & Installation
 
 ### Prerequisites
 
-- **Java 17+** - [Download from Oracle](https://www.oracle.com/java/technologies/downloads/) or [OpenJDK](https://openjdk.org/)
-- **Maven 3.6+** - [Download from Apache](https://maven.apache.org/download.cgi)
-- **MySQL 8+** - [Download from Oracle](https://dev.mysql.com/downloads/mysql/)
-- **Git** - [Download from Git](https://git-scm.com/downloads)
+- **Java 17+** 
+- **Maven 3.6+** 
+- **MySQL 8+**
+- **Git** 
 
 ### Installation Steps
 
@@ -248,7 +294,7 @@ CREATE TABLE webhook_events (
 5. **Verify Installation**
    ```bash
    # Check if application is running
-   curl http://localhost:8080/actuator/health
+   curl http://localhost:8080/api/v1/webhooks/payment
    ```
 
 ## ⚙️ Configuration
@@ -463,7 +509,104 @@ String headerValue = "sha256=" + Base64.encode(signature);
 
 ### Monitoring
 
-- **Health Checks**: `/actuator/health` endpoint
-- **Metrics**: Spring Boot Actuator metrics
 - **Logging**: Structured logging with correlation IDs
 - **Database Monitoring**: Query performance tracking
+- **Error Tracking**: Comprehensive error logging and monitoring
+
+## Future Improvements
+
+### Retry Logic & Dead Letter Queue (DLQ)
+
+For enterprise-grade resilience, the following enhancements can be implemented:
+
+#### Implementation Approach
+
+1. **Enhanced WebhookEvent Entity**:
+```java
+@Entity
+@Table(name = "webhook_events")
+public class WebhookEvent {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(unique = true, nullable = false)
+    private String eventId;
+    
+    @Lob
+    private String payload;
+    
+    @Enumerated(EnumType.STRING)
+    private EventStatus status;
+    
+    private Integer attempts = 0;
+    private String lastError;
+    private Instant lastAttemptAt;
+    private Instant receivedAt;
+    
+    // Getters/setters...
+}
+```
+
+2. **Retry Service**:
+```java
+@Service
+public class WebhookRetryService {
+    
+    @Retryable(value = {DataAccessException.class}, maxAttempts = 3)
+    public void processWithRetry(WebhookPayloadDto payload) {
+        try {
+            webhookService.processWebhook(payload);
+        } catch (DataAccessException e) {
+            incrementAttemptCount(payload.getEventId());
+            throw e; // Will retry up to maxAttempts
+        }
+    }
+    
+    @Recover
+    public void recover(DataAccessException ex, WebhookPayloadDto payload) {
+        moveToDLQ(payload.getEventId(), ex.getMessage());
+    }
+}
+```
+
+3. **DLQ Management**:
+```java
+@RestController
+@RequestMapping("/admin")
+public class AdminController {
+    
+    @GetMapping("/dlq")
+    public List<WebhookEvent> getDLQEvents() {
+        return webhookEventRepository.findByStatus(EventStatus.DLQ);
+    }
+    
+    @PostMapping("/dlq/{eventId}/replay")
+    public ResponseEntity<?> replayEvent(@PathVariable String eventId) {
+        WebhookEvent event = webhookEventRepository.findByEventId(eventId);
+        if (event != null && event.getStatus() == EventStatus.DLQ) {
+            event.setStatus(EventStatus.PENDING);
+            event.setAttempts(0);
+            webhookEventRepository.save(event);
+            return ResponseEntity.ok("Event queued for replay");
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
+```
+
+#### Benefits
+
+- **Resilience**: Automatic retry on transient failures
+- **Manual Recovery**: Admin endpoint to replay failed events
+- **Observability**: Track failure patterns
+- **DLQ Storage**: Failed events stored with reason and timestamp
+- **Enterprise Ready**: Production-grade error handling
+
+#### Additional Enhancements
+
+- **Async Processing**: Spring `@Async` for non-blocking webhook processing
+- **Circuit Breaker**: Hystrix or Resilience4j for external service failures
+- **Rate Limiting**: Prevent webhook flooding
+- **Metrics & Monitoring**: Prometheus metrics and Grafana dashboards
+- **Distributed Tracing**: Zipkin or Jaeger for request tracing

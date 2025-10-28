@@ -8,6 +8,7 @@ import com.koshal.webhook.util.CachedBodyHttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,28 +24,32 @@ public class WebhookController {
     @PostMapping("/payment")
     public ResponseEntity<?> receiveWebhook(
             @Valid @RequestBody WebhookPayloadDto payload,
-            @RequestHeader("X-Webhook-Signature") String signature,
+            @RequestHeader(value = "X-Webhook-Signature", required = false) String signature,
             CachedBodyHttpServletRequest request) {
-        
+
         try {
             String rawBody = request.getCachedBody();
-            
+
+            if (signature == null || signature.isBlank()) {
+                throw new ApiException("Missing webhook signature header", HttpStatus.UNAUTHORIZED);
+            }
+
             // Validate webhook signature and timestamp
             signatureValidationService.validateWebhook(
-                rawBody, 
-                signature, 
-                payload.getTimestamp().getEpochSecond()
+                    rawBody,
+                    signature,
+                    payload.getTimestamp().getEpochSecond()
             );
 
             webhookService.processWebhook(payload);
-            
+
             return ResponseEntity.ok(
                     java.util.Map.of(
                             "eventId", payload.getEventId(),
                             "message", "Webhook received and processed successfully"
                     )
             );
-            
+
         } catch (ApiException ex) {
             log.error("API Exception: {}", ex.getMessage());
             return ResponseEntity.status(ex.getStatus())
@@ -54,11 +59,12 @@ public class WebhookController {
                     ));
         } catch (Exception e) {
             log.error("Error processing webhook", e);
-            return ResponseEntity.badRequest()
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(java.util.Map.of(
-                            "error", "Failed to process webhook",
-                            "message", e.getMessage()
+                            "error", "Internal server error",
+                            "status", HttpStatus.INTERNAL_SERVER_ERROR.value()
                     ));
         }
     }
+
 }
