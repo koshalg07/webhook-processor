@@ -1,6 +1,7 @@
 package com.koshal.webhook.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.koshal.webhook.validation.ValidCurrency;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -18,6 +19,7 @@ public class TransactionDataDto {
     private BigDecimal amount;
 
     @NotBlank
+    @ValidCurrency
     private String currency;
 
     @Valid @NotNull

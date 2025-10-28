@@ -22,8 +22,10 @@ public class Transaction {
 
     private String senderId;
     private String senderName;
+    private String senderCountry;
     private String receiverId;
     private String receiverName;
+    private String receiverCountry;
     private String paymentMethod;
 
     @Enumerated(EnumType.STRING)

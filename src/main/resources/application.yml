@@ -28,3 +28,11 @@ logging:
   level:
     root: INFO
     org.springframework: INFO
+
+webhook:
+  secret: "super-key"
+  tolerance-seconds: 300
+  signature:
+    algorithm: "HmacSHA256"
+    header-name: "X-Webhook-Signature"
+    prefix: "sha256="
