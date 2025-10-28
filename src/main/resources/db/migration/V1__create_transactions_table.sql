@@ -1,0 +1,20 @@
+CREATE TABLE transactions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_id VARCHAR(255) NOT NULL UNIQUE,
+    transaction_id VARCHAR(255) NOT NULL UNIQUE,
+    amount DECIMAL(18,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    sender_id VARCHAR(255),
+    sender_name VARCHAR(255),
+    sender_country VARCHAR(3),
+    receiver_id VARCHAR(255),
+    receiver_name VARCHAR(255),
+    receiver_country VARCHAR(3),
+    status VARCHAR(20) NOT NULL,
+    payment_method VARCHAR(100),
+    processing_fee DECIMAL(18,2),
+    net_amount DECIMAL(18,2),
+    processed_at DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
