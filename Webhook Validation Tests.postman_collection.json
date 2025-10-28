@@ -1,0 +1,1191 @@
+{
+	"info": {
+		"_postman_id": "e966099a-f39d-4908-93ea-21bba4d079f3",
+		"name": "Webhook Validation Tests",
+		"description": "Test suite for webhook HMAC + timestamp validation with X-Webhook-Signature header",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "39762904"
+	},
+	"item": [
+		{
+			"name": "Valid Webhook Request",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret (should match your application.yml)",
+							"const secret = \"super-key\";",
+							"",
+							"// Sample webhook payload",
+							"const payload = {",
+							"  \"event_id\": \"evt_test_001\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_001\",",
+							"    \"amount\": 2500.75,",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Alice Johnson\",",
+							"      \"email\": \"alice.j@example.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Raj Patel\",",
+							"      \"email\": \"raj.p@example.in\",",
+							"      \"country\": \"IN\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"bank_transfer\",",
+							"    \"metadata\": {",
+							"      \"reference\": \"INV-2025-001\",",
+							"      \"notes\": \"Q4 payment\"",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for successful webhook processing",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains eventId\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('eventId');",
+							"    pm.expect(jsonData).to.have.property('message');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains success message\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.include('successfully');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Valid webhook request with proper HMAC signature. Expected: 200 OK"
+			},
+			"response": []
+		},
+		{
+			"name": "Invalid Signature Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Sample webhook payload",
+							"const payload = {",
+							"  \"event_id\": \"evt_invalid_sig\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_invalid_sig\",",
+							"    \"amount\": 100.00,",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Test Sender\",",
+							"      \"email\": \"sender@test.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Test Receiver\",",
+							"      \"email\": \"receiver@test.com\",",
+							"      \"country\": \"CA\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"card\"",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Set INVALID signature intentionally",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=invalid_signature_here\"",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Payload:\", payloadString);",
+							"console.log(\"Invalid Signature: sha256=invalid_signature_here\");"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for invalid signature response (after controller fix)",
+							"pm.test(\"Status code is 401\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});",
+							"",
+							"pm.test(\"Response contains error message\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('signature');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains unauthorized status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(401);",
+							"});",
+							"",
+							"// Debug: Log the actual response",
+							"console.log(\"Actual response status:\", pm.response.status);",
+							"console.log(\"Actual response body:\", pm.response.text());"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "X-Webhook-Signature",
+						"value": "{{signature}}",
+						"description": "This will be overridden by pre-script"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Invalid webhook signature test. Expected: 401 Unauthorized (after controller fix)"
+			},
+			"response": []
+		},
+		{
+			"name": "Old Timestamp Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload with old timestamp (more than 5 minutes ago)",
+							"const oldTimestamp = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 minutes ago",
+							"const payload = {",
+							"  \"event_id\": \"evt_old_timestamp\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": oldTimestamp,",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_old\",",
+							"    \"amount\": 100.00,",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Test Sender\",",
+							"      \"email\": \"sender@test.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Test Receiver\",",
+							"      \"email\": \"receiver@test.com\",",
+							"      \"country\": \"CA\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"card\"",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Old timestamp:\", oldTimestamp);",
+							"console.log(\"Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for old timestamp response",
+							"pm.test(\"Status code is 401\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});",
+							"",
+							"pm.test(\"Response contains timestamp error\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('timestamp');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains unauthorized status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(401);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Old timestamp test. Expected: 401 Unauthorized"
+			},
+			"response": []
+		},
+		{
+			"name": "Duplicate Event Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Same payload as Test 1 (to test idempotency)",
+							"const payload = {",
+							"  \"event_id\": \"evt_test_001\", // Same event_id as Test 1",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_001\", // Same transaction_id as Test 1",
+							"    \"amount\": 2500.75,",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Alice Johnson\",",
+							"      \"email\": \"alice.j@example.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Raj Patel\",",
+							"      \"email\": \"raj.p@example.in\",",
+							"      \"country\": \"IN\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"bank_transfer\",",
+							"    \"metadata\": {",
+							"      \"reference\": \"INV-2025-001\",",
+							"      \"notes\": \"Q4 payment\"",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Duplicate Event Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);",
+							"console.log(\"Note: Run Test 1 first, then this test to see 409 Conflict\");"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for duplicate event response",
+							"pm.test(\"Status code is 409\", function () {",
+							"    pm.response.to.have.status(409);",
+							"});",
+							"",
+							"pm.test(\"Response contains conflict error\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('Duplicate event');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains conflict status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(409);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Duplicate event test. Expected: 409 Conflict (run Test 1 first)"
+			},
+			"response": []
+		},
+		{
+			"name": "Invalid Currency Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload with invalid currency",
+							"const payload = {",
+							"  \"event_id\": \"evt_invalid_currency\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_invalid_currency\",",
+							"    \"amount\": 100.00,",
+							"    \"currency\": \"XYZ\", // Invalid currency",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Test Sender\",",
+							"      \"email\": \"sender@test.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Test Receiver\",",
+							"      \"email\": \"receiver@test.com\",",
+							"      \"country\": \"CA\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"card\"",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Invalid Currency Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for invalid currency response",
+							"pm.test(\"Status code is 400\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"",
+							"pm.test(\"Response contains validation error\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('currency');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains bad request status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Invalid currency test. Expected: 400 Bad Request"
+			},
+			"response": []
+		},
+		{
+			"name": "Invalid Status Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload with invalid status",
+							"const payload = {",
+							"  \"event_id\": \"evt_invalid_status\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_invalid_status\",",
+							"    \"amount\": 100.00,",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Test Sender\",",
+							"      \"email\": \"sender@test.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Test Receiver\",",
+							"      \"email\": \"receiver@test.com\",",
+							"      \"country\": \"CA\"",
+							"    },",
+							"    \"status\": \"processing\", // Invalid status (should be pending/completed/failed)",
+							"    \"payment_method\": \"card\"",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Invalid Status Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for invalid status response",
+							"pm.test(\"Status code is 400\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"",
+							"pm.test(\"Response contains validation error\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('status');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains bad request status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Invalid status test. Expected: 400 Bad Request"
+			},
+			"response": []
+		},
+		{
+			"name": "Negative Amount Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload with negative amount",
+							"const payload = {",
+							"  \"event_id\": \"evt_negative_amount\",",
+							"  \"event_type\": \"transaction.completed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_negative\",",
+							"    \"amount\": -100.00, // Negative amount",
+							"    \"currency\": \"USD\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_123\",",
+							"      \"name\": \"Test Sender\",",
+							"      \"email\": \"sender@test.com\",",
+							"      \"country\": \"US\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_456\",",
+							"      \"name\": \"Test Receiver\",",
+							"      \"email\": \"receiver@test.com\",",
+							"      \"country\": \"CA\"",
+							"    },",
+							"    \"status\": \"completed\",",
+							"    \"payment_method\": \"card\"",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Negative Amount Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for negative amount response",
+							"pm.test(\"Status code is 400\", function () {",
+							"    pm.response.to.have.status(400);",
+							"});",
+							"",
+							"pm.test(\"Response contains validation error\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('error');",
+							"    pm.expect(jsonData.error).to.include('amount');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains bad request status\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('status');",
+							"    pm.expect(jsonData.status).to.eql(400);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Negative amount test. Expected: 400 Bad Request"
+			},
+			"response": []
+		},
+		{
+			"name": "Transaction Pending Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload for pending transaction",
+							"const payload = {",
+							"  \"event_id\": \"evt_pending_001\",",
+							"  \"event_type\": \"transaction.pending\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_pending_001\",",
+							"    \"amount\": 500.00,",
+							"    \"currency\": \"EUR\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_789\",",
+							"      \"name\": \"John Doe\",",
+							"      \"email\": \"john@example.com\",",
+							"      \"country\": \"DE\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_101\",",
+							"      \"name\": \"Jane Smith\",",
+							"      \"email\": \"jane@example.com\",",
+							"      \"country\": \"FR\"",
+							"    },",
+							"    \"status\": \"pending\",",
+							"    \"payment_method\": \"card\",",
+							"    \"metadata\": {",
+							"      \"reference\": \"INV-2025-002\",",
+							"      \"notes\": \"Pending payment\"",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Pending Transaction Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for pending transaction response",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains eventId\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('eventId');",
+							"    pm.expect(jsonData).to.have.property('message');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains success message\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.include('successfully');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Transaction pending test. Expected: 200 OK"
+			},
+			"response": []
+		},
+		{
+			"name": "Transaction Failed Test",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Webhook secret",
+							"const secret = \"super-key\";",
+							"",
+							"// Payload for failed transaction",
+							"const payload = {",
+							"  \"event_id\": \"evt_failed_001\",",
+							"  \"event_type\": \"transaction.failed\",",
+							"  \"timestamp\": new Date().toISOString(),",
+							"  \"data\": {",
+							"    \"transaction_id\": \"txn_failed_001\",",
+							"    \"amount\": 1000.00,",
+							"    \"currency\": \"GBP\",",
+							"    \"sender\": {",
+							"      \"id\": \"usr_sender_202\",",
+							"      \"name\": \"Bob Wilson\",",
+							"      \"email\": \"bob@example.com\",",
+							"      \"country\": \"GB\"",
+							"    },",
+							"    \"receiver\": {",
+							"      \"id\": \"usr_receiver_303\",",
+							"      \"name\": \"Sarah Brown\",",
+							"      \"email\": \"sarah@example.com\",",
+							"      \"country\": \"AU\"",
+							"    },",
+							"    \"status\": \"failed\",",
+							"    \"payment_method\": \"bank_transfer\",",
+							"    \"metadata\": {",
+							"      \"reference\": \"INV-2025-003\",",
+							"      \"notes\": \"Failed payment\"",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"// Convert payload to JSON string",
+							"const payloadString = JSON.stringify(payload);",
+							"",
+							"// Generate HMAC-SHA256 signature",
+							"const signature = CryptoJS.HmacSHA256(payloadString, secret).toString(CryptoJS.enc.Base64);",
+							"",
+							"// Set the signature header",
+							"pm.request.headers.add({",
+							"  key: \"X-Webhook-Signature\",",
+							"  value: \"sha256=\" + signature",
+							"});",
+							"",
+							"// Set the request body",
+							"pm.request.body = {",
+							"  mode: 'raw',",
+							"  raw: payloadString,",
+							"  options: {",
+							"    raw: {",
+							"      language: 'json'",
+							"    }",
+							"  }",
+							"};",
+							"",
+							"console.log(\"Failed Transaction Payload:\", payloadString);",
+							"console.log(\"Signature:\", \"sha256=\" + signature);"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// Test for failed transaction response",
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains eventId\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData).to.have.property('eventId');",
+							"    pm.expect(jsonData).to.have.property('message');",
+							"});",
+							"",
+							"pm.test(\"Response time is less than 2000ms\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(2000);",
+							"});",
+							"",
+							"pm.test(\"Response contains success message\", function () {",
+							"    const jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.include('successfully');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/webhooks/payment",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"webhooks",
+						"payment"
+					]
+				},
+				"description": "Transaction failed test. Expected: 200 OK"
+			},
+			"response": []
+		}
+	]
+}

@@ -50,22 +50,4 @@ public class WebhookSignatureValidationService {
         log.debug("Webhook validation successful");
     }
 
-    /**
-     * Validates webhook signature only (without timestamp validation)
-     * Useful for testing or when timestamp validation is not required
-     * 
-     * @param payload The raw request body
-     * @param signature The signature from X-Webhook-Signature header
-     * @throws ApiException if signature validation fails
-     */
-    public void validateSignature(String payload, String signature) {
-        log.debug("Validating webhook signature");
-        
-        if (!signatureValidator.isValidSignature(payload, signature, webhookSecret)) {
-            log.error("Webhook signature validation failed");
-            throw new ApiException("Invalid webhook signature", HttpStatus.UNAUTHORIZED);
-        }
-        
-        log.debug("Webhook signature validation successful");
-    }
 }

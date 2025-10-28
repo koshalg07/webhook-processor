@@ -1,6 +1,7 @@
 package com.koshal.webhook.controller;
 
 import com.koshal.webhook.dto.WebhookPayloadDto;
+import com.koshal.webhook.exception.GlobalExceptionHandler.ApiException;
 import com.koshal.webhook.service.WebhookService;
 import com.koshal.webhook.service.WebhookSignatureValidationService;
 import com.koshal.webhook.util.CachedBodyHttpServletRequest;
@@ -26,7 +27,6 @@ public class WebhookController {
             CachedBodyHttpServletRequest request) {
         
         try {
-            // Get the raw request body for signature validation
             String rawBody = request.getCachedBody();
             
             // Validate webhook signature and timestamp
@@ -35,8 +35,7 @@ public class WebhookController {
                 signature, 
                 payload.getTimestamp().getEpochSecond()
             );
-            
-            // Process the webhook if validation passes
+
             webhookService.processWebhook(payload);
             
             return ResponseEntity.ok(
@@ -46,6 +45,13 @@ public class WebhookController {
                     )
             );
             
+        } catch (ApiException ex) {
+            log.error("API Exception: {}", ex.getMessage());
+            return ResponseEntity.status(ex.getStatus())
+                    .body(java.util.Map.of(
+                            "error", ex.getMessage(),
+                            "status", ex.getStatus().value()
+                    ));
         } catch (Exception e) {
             log.error("Error processing webhook", e);
             return ResponseEntity.badRequest()

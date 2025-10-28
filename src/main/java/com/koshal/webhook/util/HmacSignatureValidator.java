@@ -21,14 +21,6 @@ public class HmacSignatureValidator {
     private static final String HMAC_SHA256 = "HmacSHA256";
     private static final String SIGNATURE_PREFIX = "sha256=";
 
-    /**
-     * Validates HMAC signature against the provided payload and secret
-     * 
-     * @param payload The raw request body as string
-     * @param signature The signature from the X-Webhook-Signature header
-     * @param secret The webhook secret key
-     * @return true if signature is valid, false otherwise
-     */
     public boolean isValidSignature(String payload, String signature, String secret) {
         if (payload == null || signature == null || secret == null) {
             log.warn("Invalid parameters for signature validation: payload={}, signature={}, secret={}", 
@@ -57,12 +49,6 @@ public class HmacSignatureValidator {
 
     /**
      * Calculates HMAC-SHA256 signature for the given payload and secret
-     * 
-     * @param payload The raw request body
-     * @param secret The webhook secret key
-     * @return Base64 encoded signature
-     * @throws NoSuchAlgorithmException if HMAC-SHA256 is not available
-     * @throws InvalidKeyException if the secret key is invalid
      */
     public String calculateSignature(String payload, String secret) 
             throws NoSuchAlgorithmException, InvalidKeyException {
@@ -80,10 +66,6 @@ public class HmacSignatureValidator {
 
     /**
      * Extracts the signature value from the signature header
-     * Handles formats like "sha256=abc123..." or just "abc123..."
-     * 
-     * @param signatureHeader The signature header value
-     * @return The signature value without prefix
      */
     private String extractSignature(String signatureHeader) {
         if (signatureHeader.startsWith(SIGNATURE_PREFIX)) {
@@ -94,10 +76,6 @@ public class HmacSignatureValidator {
 
     /**
      * Constant time comparison to prevent timing attacks
-     * 
-     * @param a First string
-     * @param b Second string
-     * @return true if strings are equal, false otherwise
      */
     private boolean constantTimeEquals(String a, String b) {
         if (a == null || b == null) {
@@ -118,10 +96,6 @@ public class HmacSignatureValidator {
 
     /**
      * Validates timestamp to prevent replay attacks
-     * 
-     * @param timestamp The timestamp from the webhook payload
-     * @param toleranceSeconds Maximum allowed time difference in seconds
-     * @return true if timestamp is within tolerance, false otherwise
      */
     public boolean isValidTimestamp(long timestamp, int toleranceSeconds) {
         long currentTime = System.currentTimeMillis() / 1000;

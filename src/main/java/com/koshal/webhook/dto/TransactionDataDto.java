@@ -2,6 +2,7 @@ package com.koshal.webhook.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.koshal.webhook.validation.ValidCurrency;
+import com.koshal.webhook.validation.ValidTransactionStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.*;
@@ -29,6 +30,7 @@ public class TransactionDataDto {
     private PartyDto receiver;
 
     @NotBlank
+    @ValidTransactionStatus
     private String status;
 
     @JsonProperty("payment_method")

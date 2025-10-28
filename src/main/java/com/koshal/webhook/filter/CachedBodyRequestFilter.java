@@ -20,8 +20,7 @@ public class CachedBodyRequestFilter implements Filter {
         
         if (request instanceof HttpServletRequest) {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
-            
-            // Only wrap POST requests to webhook endpoints
+
             if ("POST".equalsIgnoreCase(httpRequest.getMethod()) && 
                 httpRequest.getRequestURI().contains("/webhooks/")) {
                 

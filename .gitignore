@@ -39,8 +39,3 @@ build/
 logs/
 
 .gitattributes
-
-.pdf
-Backend Developer Home Assignment.pdf
-assignment.txt
-postman_collection.json
