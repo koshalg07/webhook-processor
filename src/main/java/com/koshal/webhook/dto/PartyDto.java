@@ -1,20 +1,14 @@
 package com.koshal.webhook.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.Data;
+import jakarta.validation.constraints.*;
+import lombok.*;
 
-@Data
+@Getter @Setter @Builder
+@NoArgsConstructor @AllArgsConstructor
 public class PartyDto {
 
-    @NotBlank
-    private String id;
-
-    @NotBlank
-    private String name;
-
-    @Size(min = 2, max = 3)
-    private String country;
-
-    private String email;
+    @NotBlank private String id;
+    @NotBlank private String name;
+    @Email private String email;
+    @Size(min = 2, max = 2) private String country;
 }

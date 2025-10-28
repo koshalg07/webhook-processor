@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/v1/webhooks")
 @RequiredArgsConstructor
@@ -17,11 +15,13 @@ public class WebhookController {
     private final WebhookService webhookService;
 
     @PostMapping("/payment")
-    public ResponseEntity<Map<String, Object>> handleWebhook(@Valid @RequestBody WebhookPayloadDto payload) {
+    public ResponseEntity<?> receiveWebhook(@Valid @RequestBody WebhookPayloadDto payload) {
         webhookService.processWebhook(payload);
-        return ResponseEntity.ok(Map.of(
-                "message", "Webhook received successfully",
-                "eventId", payload.getEventId()
-        ));
+        return ResponseEntity.ok(
+                java.util.Map.of(
+                        "eventId", payload.getEventId(),
+                        "message", "Webhook received successfully"
+                )
+        );
     }
 }

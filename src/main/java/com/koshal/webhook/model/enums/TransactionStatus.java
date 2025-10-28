@@ -1,4 +1,4 @@
-package com.koshal.webhook.model;
+package com.koshal.webhook.model.enums;
 
 public enum TransactionStatus {
     PENDING,
