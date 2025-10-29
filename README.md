@@ -379,7 +379,7 @@ The repository includes a comprehensive Postman collection (`Webhook Validation 
 1. **Import Collection**
    - Open Postman
    - Click "Import" → "Upload Files"
-   - Select `Webhook Validation Tests.postman_collection.json`
+   - Select `collection.json`
 
 2. **Configure Environment**
    - Set `baseUrl` variable to `http://localhost:8080`
